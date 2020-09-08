@@ -1,0 +1,127 @@
+import sys
+import glob
+import re
+from os import listdir
+from os.path import basename, join, splitext
+from snakemake.utils import min_version
+
+min_version("5.0")
+
+# to use this as a package
+sys.path.append('.')
+
+# path to utility module
+UTILDIR = 'utilities'
+
+DATALOC = config['data_location']
+# writing data to user defined location if possible, otherwise use data location
+if 'output_location' in config:
+    OUTPUTLOC = config['output_location']
+
+
+############ SNAKEMAKE ORGANIZATION #####################
+
+rule clean:
+    input:
+        output_dirs = [join(OUTPUTLOC, session) for session in SESSIONS],
+    params:
+        report = join(OUTPUTLOC, 'report.html')
+    shell:
+        '''
+        rm -r {input.output_dirs}
+        rm -f {params.report}
+        '''
+
+rule save_report:
+    input:
+        [join(OUTPUTLOC, session, session + '_{}.nix'.format(flavour))
+        for session in SESSIONS for flavour in FLAVOURS],
+        join(OUTPUTLOC, 'dag.svg')
+    output:
+        join(OUTPUTLOC, 'report.html')
+    conda:
+        'envs/report_env.yaml'
+    shell:
+        '''
+        snakemake --dryrun --report {output}
+        '''
+
+rule save_dag:
+    output:
+        report(join(OUTPUTLOC, 'dag.svg'),caption="report/dag.rst")
+    conda:
+        'envs/report_env.yaml'
+    shell:
+        '''
+        snakemake --dag | dot -Tsvg > {output}
+        '''
+
+
+
+############ METADATA HANDLING #####################
+
+#rule integrate_descriptors:
+#    input:
+#        descriptors = get_avail_odml_descriptors,
+#        script = 'scripts/utilities/app_integrate_descriptors.py'
+#    output:
+#        full_odml = join(OUTPUTLOC, '{session}', 'descriptors', 'odMLs', 'all_descriptors.odml')
+#    conda:
+#        'envs/metadata_env.yaml'
+#    shell:
+#        'python {input.script} {input.descriptors} {output.full_odml}'
+
+rule csv_to_odml:
+    input:
+        csv_file = join('{folder}', 'csv', '{filename}.csv'),
+    output:
+        join('{folder}', 'odMLs', '{filename}.odml')
+    conda:
+        'envs/metadata_env.yaml'
+    shell:
+        'python utilities/csv_to_odml.py {input.csv_file} {output}'
+
+########## DATA HANDLING ###################
+
+rule data_to_nix:
+    input:
+        utils = ancient(UTILDIR)
+    output:
+        join(OUTPUTLOC, '{session}', '{session}' + '_original.nix')
+    params:
+        data_sets = get_recording_sets
+    conda:
+        'envs/metadata_env.yaml'
+    shell:
+        '''
+export PYTHONPATH={input.utils}
+#!/bin/bash
+a='{params.data_sets}'
+for s in {params.data_sets}; do
+    python utilities/data_to_nix.py $s.nev {output}
+done
+        '''
+
+
+################## DATA & METADATA INTEGRATION ################
+
+rule integrate_metadata:
+    input:
+        datafile = join(OUTPUTLOC, '{session}', '{session}_original.nix'),
+        metadatafile = join(OUTPUTLOC, '{session}', 'metadata_complete.odml')
+    output:
+        touch(join(OUTPUTLOC, '{session}', 'odmlINnix.done')),
+        datafile = join(OUTPUTLOC, '{session}', '{session}.nix'),
+    conda:
+        'envs/metadata_env.yaml'
+    shell:
+        '''
+        cp {input.datafile} {output.datafile}
+        python utilities/integrate_metadata.py {input.metadatafile} {output.datafile}
+        '''
+
+
+
+############### DEPLOYMENT ###################################
+
+## TODO: Add rules for interaction with gin

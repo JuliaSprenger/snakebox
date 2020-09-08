@@ -1,0 +1,12 @@
+name: v4a-preprocessing
+channels:
+  - anaconda
+dependencies:
+  - python >= 3.6
+  - networkx
+  - jinja2
+  - pygraphviz
+  - pygments
+  - pip
+  - pip:
+      - snakemake==5.10

@@ -1,0 +1,20 @@
+name: v4a-preprocessing
+dependencies:
+  - python >= 3.6
+  - scipy
+  - numpy
+  - lxml # this should be covered by odML already
+  - matplotlib
+  - openpyxl
+  - hdf5
+  - pip
+  - pip:
+    - nixio==1.5.0b6
+    - "git+https://github.com/JuliaSprenger/nix-odML-converter@enh/mode"
+    - odml>=1.5
+    - odmltables>=1.0.0b3
+    # will be incorporated in neo master with official release of this nix version
+    - "git+https://github.com/INM-6/python-neo@nixio-15dev0-compatibility"
+#    - 'git+https://github.com/inm-6/python-neo.git@feature/nix_write_proxyobjects'
+    # - 'git+https://github.com/inm-6/python-neo.git@lazy_load_with_proxy_AND_write_nix '
+    - elephant
